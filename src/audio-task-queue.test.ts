@@ -87,3 +87,84 @@ describe('AudioTaskQueue', () => {
     assert.equal(l.started[1]!.signal.aborted, false);
   });
 });
+
+// Loader that honours the signal like the real fetch-based one does.
+function abortableLoader() {
+  const started: string[] = [];
+  const load = (url: string, signal: AbortSignal) =>
+    new Promise<AudioBuffer>((_, reject) => {
+      started.push(url);
+      signal.addEventListener('abort', () => reject(signal.reason));
+    });
+  return { load, started };
+}
+
+describe('AudioTaskQueue cancellation', () => {
+  it('removes a queued task and rejects it with AbortError', async () => {
+    const l = abortableLoader();
+    const q = new AudioTaskQueue(l.load);
+    void q.enqueueTask('a').promise.catch(() => {});
+    const b = q.enqueueTask('b');
+    const c = q.enqueueTask('c');
+    const rejected = assert.rejects(b.promise, { name: 'AbortError' });
+    assert.equal(q.cancel(b.id), true);
+    await rejected;
+    assert.equal(q.cancel(b.id), false);
+    q.cancel(c.id);
+    await assert.rejects(c.promise, { name: 'AbortError' });
+    await tick();
+    assert.deepEqual(l.started, ['a']);
+  });
+
+  it('aborts the active task and moves on to the next', async () => {
+    const m = manualLoader();
+    const q = new AudioTaskQueue((url, signal) => {
+      const p = m.load(url, signal);
+      signal.addEventListener('abort', () =>
+        m.started.find((s) => s.url === url)?.reject(signal.reason));
+      return p;
+    });
+    const a = q.enqueueTask('a');
+    const b = q.enqueue('b');
+    await tick();
+    const signalA = m.started[0]!.signal;
+    assert.equal(q.cancel(a.id), true);
+    assert.equal(signalA.aborted, true);
+    assert.equal(q.cancel(a.id), false);
+    await assert.rejects(a.promise, { name: 'AbortError' });
+    await tick();
+    assert.deepEqual(m.started.map((s) => s.url), ['a', 'b']);
+    m.started[1]!.resolve(fakeBuffer('B'));
+    assert.deepEqual(await b, { tag: 'B' });
+  });
+
+  it('rejects a cancelled task if the loader ignores abort', async () => {
+    const m = manualLoader();
+    const q = new AudioTaskQueue(m.load);
+    const a = q.enqueueTask('a');
+    await tick();
+    q.cancel(a.id);
+    m.started[0]!.resolve(fakeBuffer('late'));
+    await assert.rejects(a.promise, { name: 'AbortError' });
+  });
+
+  it('clear() cancels queued and active, then reusable', async () => {
+    const l = abortableLoader();
+    const q = new AudioTaskQueue(l.load);
+    const all = ['a', 'b', 'c'].map((u) => q.enqueueTask(u).promise);
+    await tick();
+    const rejected = all.map((p) => assert.rejects(p, { name: 'AbortError' }));
+    q.clear();
+    await Promise.all(rejected);
+    await tick();
+    assert.deepEqual(l.started, ['a']);
+    void q.enqueueTask('d').promise.catch(() => {});
+    await tick();
+    assert.deepEqual(l.started, ['a', 'd']);
+  });
+
+  it('cancel() returns false for unknown ids', () => {
+    const q = new AudioTaskQueue(abortableLoader().load);
+    assert.equal(q.cancel('nope'), false);
+  });
+});
