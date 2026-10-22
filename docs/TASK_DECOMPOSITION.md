@@ -10,7 +10,7 @@ verbatim.
 | Task | Level | Scope | Constraint | Commit | Deliverables |
 |---|---|---|---|---|---|
 | - [x] 0.1 Scaffold project | Awareness | build | Vite + TypeScript, strict mode; royalty-free tracks in `public/audio/` | `build(setup): scaffold vite typescript project` | project config, `public/audio/*`, `.gitignore` (`evidence/`, `node_modules/`, `dist/`) |
-| - [ ] 1.1 Define queue contract | Core | contract | `AudioTask`, `AudioTaskQueue` per slide; player state union `IDLE \| LOADING \| PLAYING \| ERROR` | `feat(contract): define audio queue types` | `src/types.ts` |
+| - [x] 1.1 Define queue contract | Core | contract | `AudioTask`, `AudioTaskQueue` per slide; player state union `IDLE \| LOADING \| PLAYING \| ERROR` | `feat(contract): define audio queue types` | `src/types.ts` |
 | - [ ] 1.2 FIFO queue core | Core | queue | Strict enqueue order; one task processed at a time; promise per task | `feat(queue): implement fifo enqueue and processing` | `src/audio-task-queue.ts` |
 | - [ ] 1.3 Download and decode | Core | audio | `fetch` with `AbortSignal`; `decodeAudioData`; errors reject the task | `feat(audio): fetch and decode tracks` | loader in `src/audio-loader.ts` |
 | - [ ] 1.4 Cancellation | Core | queue | `AbortController` per task; cancelled tasks reject and are removed | `feat(queue): support task cancellation` | `cancel()` / `clear()` API |
