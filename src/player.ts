@@ -7,6 +7,9 @@ import type {
 
 export type PlayerListener = (state: PlayerState, error?: unknown) => void;
 
+// Spec allows 256 or 512; 512 gives 256 bins.
+const FFT_SIZE = 512;
+
 const defaultCreateContext = (): AudioContext => new AudioContext();
 const defaultCreateQueue = (context: AudioContext) =>
   new AudioTaskQueue(createTrackLoader(context));
@@ -21,7 +24,9 @@ const isAbortError = (error: unknown): boolean =>
 export class Player {
   private context: AudioContext | null = null;
   private queue: AudioTaskQueueContract | null = null;
-  private output: AudioNode | null = null;
+  private analyser: AnalyserNode | null = null;
+  // One array for the player's lifetime: no per-frame allocation.
+  private frequencyData: Uint8Array<ArrayBuffer> | null = null;
   private source: AudioBufferSourceNode | null = null;
   private pendingId: string | null = null;
   private currentState: PlayerState = 'IDLE';
@@ -41,6 +46,20 @@ export class Player {
 
   get state(): PlayerState {
     return this.currentState;
+  }
+
+  get frequencyBinCount(): number {
+    return this.analyser?.frequencyBinCount ?? FFT_SIZE / 2;
+  }
+
+  /**
+   * Fills and returns the shared frequency array (null before the first
+   * play()). The same array is returned every call; do not keep copies.
+   */
+  readFrequencyData(): Uint8Array<ArrayBuffer> | null {
+    if (!this.analyser || !this.frequencyData) return null;
+    this.analyser.getByteFrequencyData(this.frequencyData);
+    return this.frequencyData;
   }
 
   subscribe(listener: PlayerListener): () => void {
@@ -93,7 +112,9 @@ export class Player {
     void this.context?.close();
     this.context = null;
     this.queue = null;
-    this.output = null;
+    this.analyser?.disconnect();
+    this.analyser = null;
+    this.frequencyData = null;
   }
 
   private ensureContext(): AudioContext {
@@ -101,7 +122,11 @@ export class Player {
     if (!this.context) {
       this.context = this.createContext();
       this.queue = this.createQueue(this.context);
-      this.output = this.context.destination;
+      // Lives as long as the context; sources connect to it, it to output.
+      this.analyser = this.context.createAnalyser();
+      this.analyser.fftSize = FFT_SIZE;
+      this.analyser.connect(this.context.destination);
+      this.frequencyData = new Uint8Array(this.analyser.frequencyBinCount);
     }
     return this.context;
   }
@@ -109,7 +134,7 @@ export class Player {
   private startSource(context: AudioContext, buffer: AudioBuffer): void {
     const source = context.createBufferSource();
     source.buffer = buffer;
-    source.connect(this.output!);
+    source.connect(this.analyser!);
     source.addEventListener('ended', this.onEnded, { once: true });
     source.start();
     this.source = source;

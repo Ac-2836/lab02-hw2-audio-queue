@@ -52,6 +52,25 @@ interface FakeTask {
   reject: (e: unknown) => void;
 }
 
+class FakeAnalyser {
+  fftSize = 2048;
+  frequencyBinCount = 1024;
+  connectedTo: unknown = null;
+  disconnected = 0;
+  filled: unknown[] = [];
+  connect(node: unknown) {
+    this.connectedTo = node;
+    this.frequencyBinCount = this.fftSize / 2;
+  }
+  disconnect() {
+    this.disconnected++;
+  }
+  getByteFrequencyData(array: Uint8Array) {
+    this.filled.push(array);
+    array.fill(7);
+  }
+}
+
 function setup(contextState = 'running', slowResume = false) {
   let releaseResume!: () => void;
   const gate = slowResume
@@ -63,9 +82,15 @@ function setup(contextState = 'running', slowResume = false) {
   const sources: FakeSource[] = [];
   const tasks: FakeTask[] = [];
   const log = { contexts: 0, resumed: 0, closed: 0, cancelled: [] as string[] };
+  const analysers: FakeAnalyser[] = [];
   const context = {
     state: contextState,
     destination,
+    createAnalyser: () => {
+      const a = new FakeAnalyser();
+      analysers.push(a);
+      return a;
+    },
     createBufferSource: () => {
       const s = new FakeSource();
       sources.push(s);
@@ -107,7 +132,16 @@ function setup(contextState = 'running', slowResume = false) {
   );
   const states: string[] = [];
   player.subscribe((s) => states.push(s));
-  return { player, sources, tasks, log, states, destination, releaseResume };
+  return {
+    player,
+    sources,
+    tasks,
+    log,
+    states,
+    destination,
+    analysers,
+    releaseResume,
+  };
 }
 
 describe('Player', () => {
@@ -117,7 +151,7 @@ describe('Player', () => {
   });
 
   it('creates one context, resumes it if suspended, and plays', async () => {
-    const { player, sources, tasks, log, states, destination } =
+    const { player, sources, tasks, log, states, destination, analysers } =
       setup('suspended');
     const p = player.play('/a.wav');
     assert.equal(log.contexts, 1);
@@ -126,7 +160,9 @@ describe('Player', () => {
     await p;
     assert.deepEqual(states, ['LOADING', 'PLAYING']);
     assert.equal(log.resumed, 1);
-    assert.equal(sources[0]!.connectedTo, destination);
+    assert.equal(analysers.length, 1);
+    assert.equal(sources[0]!.connectedTo, analysers[0]);
+    assert.equal(analysers[0]!.connectedTo, destination);
     assert.equal(sources[0]!.started, 1);
     void player.play('/b.wav');
     assert.equal(log.contexts, 1);
@@ -236,6 +272,39 @@ describe('Player', () => {
     const { player } = setup();
     player.dispose();
     await assert.rejects(player.play('/a.wav'), /disposed/);
+  });
+
+  it('analyser: fftSize 512 and one reused array', async () => {
+    const { player, tasks, analysers } = setup();
+    assert.equal(player.readFrequencyData(), null);
+    assert.equal(player.frequencyBinCount, 256);
+    const p = player.play('/a.wav');
+    await tick();
+    tasks[0]!.resolve({});
+    await p;
+    assert.equal(analysers[0]!.fftSize, 512);
+    assert.equal(player.frequencyBinCount, 256);
+    const first = player.readFrequencyData()!;
+    assert.equal(first.length, 256);
+    assert.equal(first[0], 7);
+    for (let i = 0; i < 5; i++) {
+      assert.equal(player.readFrequencyData(), first);
+    }
+    assert.equal(new Set(analysers[0]!.filled).size, 1);
+    const q = player.play('/b.wav');
+    await tick();
+    tasks[1]!.resolve({});
+    await q;
+    assert.equal(analysers.length, 1);
+    assert.equal(player.readFrequencyData(), first);
+  });
+
+  it('dispose() disconnects the analyser', async () => {
+    const { player, analysers } = setup();
+    void player.play('/a.wav');
+    player.dispose();
+    assert.equal(analysers[0]!.disconnected, 1);
+    assert.equal(player.readFrequencyData(), null);
   });
 
   it('dispose() releases the source and closes the context', async () => {
