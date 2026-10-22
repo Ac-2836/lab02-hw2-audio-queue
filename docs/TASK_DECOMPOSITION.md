@@ -14,7 +14,7 @@ verbatim.
 | - [x] 1.2 FIFO queue core | Core | queue | Strict enqueue order; one task processed at a time; promise per task | `feat(queue): implement fifo enqueue and processing` | `src/audio-task-queue.ts` |
 | - [x] 1.3 Download and decode | Core | audio | `fetch` with `AbortSignal`; `decodeAudioData`; errors reject the task | `feat(audio): fetch and decode tracks` | loader in `src/audio-loader.ts` |
 | - [x] 1.4 Cancellation | Core | queue | `AbortController` per task; cancelled tasks reject and are removed | `feat(queue): support task cancellation` | `cancel()` / `clear()` API |
-| - [ ] 1.5 Playback and cleanup | Core | audio | `AudioContext` after user gesture; `stop()` + `disconnect()` every source node on end/skip | `feat(audio): play buffers with node cleanup` | `src/player.ts` |
+| - [x] 1.5 Playback and cleanup | Core | audio | `AudioContext` after user gesture; `stop()` + `disconnect()` every source node on end/skip | `feat(audio): play buffers with node cleanup` | `src/player.ts` |
 | - [ ] 1.6 Analyser node | Core | audio | `AnalyserNode` `fftSize` 256 or 512; single reused `Uint8Array` | `feat(audio): connect frequency analyser` | analyser wiring |
 | - [ ] 1.7 Visualizer | Core | viz | Canvas/SVG via `requestAnimationFrame` at 60fps; no per-frame UI state; cancel loop on stop | `feat(viz): render frequency bars with raf loop` | `src/visualizer.ts` |
 | - [ ] 1.8 Queue UI | Core | ui | Semantic controls; stable track ids as keys; delegated events; state machine drives UI | `feat(ui): assemble queue controls and track list` | `src/main.ts`, `src/styles.css` |
