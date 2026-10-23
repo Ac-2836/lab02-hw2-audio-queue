@@ -18,5 +18,5 @@ verbatim.
 | - [x] 1.6 Analyser node | Core | audio | `AnalyserNode` `fftSize` 256 or 512; single reused `Uint8Array` | `feat(audio): connect frequency analyser` | analyser wiring |
 | - [x] 1.7 Visualizer | Core | viz | Canvas/SVG via `requestAnimationFrame` at 60fps; no per-frame UI state; cancel loop on stop | `feat(viz): render frequency bars with raf loop` | `src/visualizer.ts` |
 | - [x] 1.8 Queue UI | Core | ui | Semantic controls; stable track ids as keys; delegated events; state machine drives UI | `feat(ui): assemble queue controls and track list` | `src/main.ts`, `src/styles.css` |
-| - [ ] 1.9 Leak and fps audit | Core | audit | Heap snapshot shows no orphan nodes after stop; Performance panel ~60fps | `docs(audit): record memory and performance results` | `docs/VERIFICATION.md` (results; screenshots stay in local git-ignored `evidence/`) |
+| - [x] 1.9 Leak and fps audit | Core | audit | Heap snapshot shows no orphan nodes after stop; Performance panel ~60fps | `docs(audit): record memory and performance results` | `docs/VERIFICATION.md` (results; screenshots stay in local git-ignored `evidence/`) |
 | - [ ] 1.10 README | Awareness | docs | How to run, architecture, audio credits | `docs(readme): document usage and architecture` | `README.md` |
