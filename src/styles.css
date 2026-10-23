@@ -1,0 +1,169 @@
+:root {
+  color-scheme: dark;
+  --bg: #0f172a;
+  --panel: #1e293b;
+  --border: #475569;
+  --text: #f1f5f9;
+  --muted: #cbd5e1;
+  --accent: #2dd4bf;
+  --on-accent: #042f2e;
+  --danger: #fca5a5;
+  --focus: #fde047;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.5 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+main {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+}
+
+h2 {
+  margin: 1.5rem 0 0.5rem;
+  font-size: 1.125rem;
+}
+
+.lede {
+  margin: 0 0 1rem;
+  color: var(--muted);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+#visualizer {
+  display: block;
+  width: 100%;
+  height: 10rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tracks li,
+.queue li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.5rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+
+small {
+  color: var(--muted);
+}
+
+.queue {
+  counter-reset: item;
+}
+
+.queue li::before {
+  counter-increment: item;
+  content: counter(item) '.';
+  min-width: 1.5rem;
+  color: var(--muted);
+}
+
+.queue .title {
+  flex: 1 1 8rem;
+}
+
+.queue .status {
+  color: var(--muted);
+}
+
+.queue li[data-status='PLAYING'] {
+  border-color: var(--accent);
+}
+
+.queue li[data-status='PLAYING'] .status {
+  color: var(--accent);
+}
+
+.queue li[data-status='FAILED'] .status {
+  color: var(--danger);
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+#status {
+  min-height: 1.5rem;
+  margin: 0.75rem 0;
+}
+
+button {
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--on-accent);
+  background: var(--accent);
+  border: 2px solid var(--accent);
+  border-radius: 0.5rem;
+  cursor: pointer;
+}
+
+button:disabled {
+  color: var(--muted);
+  background: transparent;
+  border-style: dashed;
+  border-color: var(--border);
+  cursor: not-allowed;
+}
+
+button:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.queue button {
+  color: var(--text);
+  background: transparent;
+  border-color: var(--border);
+}
+
+@media (max-width: 30rem) {
+  .controls button {
+    flex: 1 1 40%;
+  }
+}

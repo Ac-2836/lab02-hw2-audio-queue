@@ -8,7 +8,88 @@
   </head>
   <body>
     <main id="app">
-      <h1>Audio Visualizer Queue</h1>
+      <header>
+        <h1>Audio Visualizer Queue</h1>
+        <p class="lede">
+          Add tracks to the queue. They download and decode one at a time, in
+          order, while the current track plays.
+        </p>
+      </header>
+
+      <section aria-labelledby="visualizer-heading">
+        <h2 id="visualizer-heading" class="visually-hidden">Visualizer</h2>
+        <canvas id="visualizer"></canvas>
+      </section>
+
+      <section aria-labelledby="tracks-heading">
+        <h2 id="tracks-heading">Tracks</h2>
+        <ul class="tracks">
+          <li>
+            <span id="track-arpeggio">Arpeggio <small>10 s</small></span>
+            <button
+              id="add-arpeggio"
+              type="button"
+              data-action="add"
+              data-url="/audio/arpeggio.wav"
+              data-title="Arpeggio"
+              aria-labelledby="add-arpeggio track-arpeggio"
+            >
+              Add to queue
+            </button>
+          </li>
+          <li>
+            <span id="track-pads">Chord pads <small>12 s</small></span>
+            <button
+              id="add-pads"
+              type="button"
+              data-action="add"
+              data-url="/audio/pads.wav"
+              data-title="Chord pads"
+              aria-labelledby="add-pads track-pads"
+            >
+              Add to queue
+            </button>
+          </li>
+          <li>
+            <span id="track-pulse">Bass pulse <small>10 s</small></span>
+            <button
+              id="add-pulse"
+              type="button"
+              data-action="add"
+              data-url="/audio/pulse.wav"
+              data-title="Bass pulse"
+              aria-labelledby="add-pulse track-pulse"
+            >
+              Add to queue
+            </button>
+          </li>
+          <li>
+            <span id="track-sweep">Rising sweep <small>9 s</small></span>
+            <button
+              id="add-sweep"
+              type="button"
+              data-action="add"
+              data-url="/audio/sweep.wav"
+              data-title="Rising sweep"
+              aria-labelledby="add-sweep track-sweep"
+            >
+              Add to queue
+            </button>
+          </li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="queue-heading">
+        <h2 id="queue-heading">Queue</h2>
+        <div class="controls" role="group" aria-label="Playback controls">
+          <button id="play" type="button" data-action="play">Play</button>
+          <button id="skip" type="button" data-action="skip">Skip</button>
+          <button id="stop" type="button" data-action="stop">Stop</button>
+          <button id="clear" type="button" data-action="clear">Clear</button>
+        </div>
+        <p id="status" role="status" aria-live="polite"></p>
+        <ol id="queue-list" class="queue"></ol>
+      </section>
     </main>
     <script type="module" src="/src/main.ts"></script>
   </body>

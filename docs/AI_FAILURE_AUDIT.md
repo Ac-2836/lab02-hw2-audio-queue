@@ -101,3 +101,66 @@ Copy this template for each failure (number entries 01, 02, 03, ...):
   `as unknown as` casts for the fakes).
 - **Verification Evidence:** `grep -nE "any" src/*.ts` returns nothing;
   `npm test` 24 of 24 and `npm run build` pass after the change.
+
+## AI Failure 04: app is dead after a back/forward-cache restore
+
+- **AI Prompt:** Task 1.8 Queue UI: `src/main.ts`, `index.html`,
+  `src/styles.css`; semantic controls, delegated events, state machine drives
+  the UI, cleanup of every listener.
+- **AI Generated Code:** `main.ts` registers
+  `window.addEventListener('pagehide', ..., { once: true })` whose handler
+  removes the click listener, unsubscribes, disposes the visualizer and calls
+  `player.dispose()` (which closes the AudioContext). `pagehide` also fires
+  when the page enters the back/forward cache (`event.persisted === true`);
+  the page is later restored as the same document, but nothing is rebuilt.
+- **Risk:** After the user navigates away and presses Back, the page looks
+  alive (it still shows "Playing Bass pulse." with Stop enabled) but every
+  button is dead: the click listener is gone, the player is disposed and the
+  AudioContext is closed. The user has to reload manually.
+- **Detection Method / DevTools Proof:** Real Chrome with bfcache enabled
+  (`pageshow` log `persisted:false` then `persisted:true`, same document
+  marker kept): play Bass pulse, navigate to `/audio/arpeggio.wav`, go Back.
+  UI snapshot unchanged ("Playing Bass pulse."), `AudioContext.state ===
+  'closed'`, clicking "Add to queue" adds no item, rAF loops 0
+  (`evidence/1.8-before-fix-bfcache-restored.png`).
+- **Engineering Refactor / Manual Fix:** the `pagehide` handler is no longer
+  `{ once: true }` and branches on `event.persisted`: when persisted it sets
+  `mode = 'STOPPED'` first and then calls `player.stop()` (so stopping does
+  not auto-advance) and returns; otherwise it removes the listeners and does
+  the full dispose. A `pageshow` handler calls `render()` when
+  `event.persisted`.
+- **Verification Evidence:** real bfcache restore in Chrome, two round trips
+  (`pageshow` persisted=true, same document marker): AudioContext `running`
+  (not closed), no rAF loop, no live source node, UI shows "Stopped. Press
+  Play to start the queue." with the queue intact and Play enabled, Add
+  works, Play works and the visualizer restarts; no unhandled rejections
+  (`evidence/1.8-after-fix-bfcache-restored.png`).
+
+## AI Failure 05: keyboard focus falls to `<body>` when a focused queue item is removed
+
+- **AI Prompt:** Task 1.8 Queue UI (accessibility: semantic controls,
+  keyboard use).
+- **AI Generated Code:** `render()` is meant to rescue focus when the focused
+  control disappears, but its guard is
+  `focused instanceof HTMLElement && root.contains(focused) && (!focused.isConnected || ...)`.
+  `focused` is read before `syncList()` removes the `<li>`, and after
+  removal `root.contains(focused)` is false, so the fallback branch can never
+  run for a removed element (the `!focused.isConnected` test is unreachable
+  in practice).
+- **Risk:** A keyboard or screen-reader user who activates a per-item
+  "Cancel" button (Tab, Enter) loses focus to `<body>` and must Tab from the
+  top of the page again (WCAG 2.4.3 focus order / 2.4.7).
+- **Detection Method / DevTools Proof:** Real keyboard session in Chrome:
+  Tab to "Cancel Bass pulse", Enter; `document.activeElement` is `BODY`
+  afterwards, while "focus not stranded after Play disables itself" passes
+  (that button stays in the DOM)
+  (`evidence/1.8-before-fix-session-b.png`).
+- **Engineering Refactor / Manual Fix:** `render()` now computes
+  `const hadFocus = focused instanceof HTMLElement && root.contains(focused)`
+  before `syncList()`, and moves focus to the first enabled fallback button
+  when `hadFocus` and the element is disconnected or disabled.
+- **Verification Evidence:** the same real keyboard session (Tab to "Cancel
+  Bass pulse", Enter) now leaves focus on the Stop button instead of
+  `<body>`; Play-disables-itself case still passes; Lighthouse Accessibility
+  1.0 and Best Practices 1.0 (`evidence/1.8-session-b-after-fix.png`,
+  `evidence/1.8-lighthouse-after-fix.json`).

@@ -2,6 +2,7 @@ import { createTrackLoader } from './audio-loader.ts';
 import { AudioTaskQueue } from './audio-task-queue.ts';
 import type {
   AudioTaskQueue as AudioTaskQueueContract,
+  EnqueuedTask,
   PlayerState,
 } from './types';
 
@@ -14,7 +15,7 @@ const defaultCreateContext = (): AudioContext => new AudioContext();
 const defaultCreateQueue = (context: AudioContext) =>
   new AudioTaskQueue(createTrackLoader(context));
 
-const isAbortError = (error: unknown): boolean =>
+export const isAbortError = (error: unknown): boolean =>
   error instanceof DOMException && error.name === 'AbortError';
 
 /**
@@ -71,12 +72,44 @@ export class Player {
 
   /** Skips whatever is playing or loading and plays `trackUrl` instead. */
   async play(trackUrl: string): Promise<void> {
+    return this.playTask(this.enqueue(trackUrl));
+  }
+
+  /**
+   * Adds a track to the FIFO queue without playing it. Call from a user
+   * gesture: the first call creates the AudioContext.
+   */
+  enqueue(trackUrl: string): EnqueuedTask {
+    this.ensureContext();
+    return this.queue!.enqueueTask(trackUrl);
+  }
+
+  /** Cancels a queued, loading or playing task. */
+  cancelTask(id: string): boolean {
+    if (id === this.pendingId) {
+      this.stop();
+      return true;
+    }
+    return this.queue?.cancel(id) ?? false;
+  }
+
+  /** Stops playback and cancels every queued task. */
+  clearQueue(): void {
+    this.stop();
+    this.queue?.clear();
+  }
+
+  /**
+   * Plays a task from enqueue(), replacing whatever is playing or loading.
+   * A task that already resolved can be played again (replay).
+   */
+  async playTask(task: EnqueuedTask): Promise<void> {
+    if (this.pendingId === task.id) return;
     // Create the context synchronously so it stays inside the user gesture.
     const context = this.ensureContext();
     this.cancelPending();
     this.releaseSource();
     this.setState('LOADING');
-    const task = this.queue!.enqueueTask(trackUrl);
     this.pendingId = task.id;
     // Mark handled now: an early rejection must not go unhandled while
     // resume() is awaited. The try block below still sees the rejection.

@@ -81,7 +81,13 @@ function setup(contextState = 'running', slowResume = false) {
   const destination = { name: 'destination' };
   const sources: FakeSource[] = [];
   const tasks: FakeTask[] = [];
-  const log = { contexts: 0, resumed: 0, closed: 0, cancelled: [] as string[] };
+  const log = {
+    contexts: 0,
+    resumed: 0,
+    closed: 0,
+    cleared: 0,
+    cancelled: [] as string[],
+  };
   const analysers: FakeAnalyser[] = [];
   const context = {
     state: contextState,
@@ -121,7 +127,10 @@ function setup(contextState = 'running', slowResume = false) {
       tasks.find((t) => t.id === id)?.reject(abortError());
       return true;
     },
-    clear: () => {},
+    clear: () => {
+      log.cleared++;
+      tasks.forEach((tk) => tk.reject(abortError()));
+    },
   };
   const player = new Player(
     (() => {
@@ -305,6 +314,67 @@ describe('Player', () => {
     player.dispose();
     assert.equal(analysers[0]!.disconnected, 1);
     assert.equal(player.readFrequencyData(), null);
+  });
+
+  it('enqueue() creates the context and queues without playing', () => {
+    const { player, sources, log, states } = setup();
+    const task = player.enqueue('/a.wav');
+    assert.equal(log.contexts, 1);
+    assert.equal(typeof task.id, 'string');
+    assert.equal(sources.length, 0);
+    assert.deepEqual(states, []);
+  });
+
+  it('playTask() plays a pre-enqueued task, and can replay it', async () => {
+    const { player, sources, tasks, states } = setup();
+    const t1 = player.enqueue('/a.wav');
+    const t2 = player.enqueue('/b.wav');
+    const p = player.playTask(t1);
+    tasks[0]!.resolve({});
+    await p;
+    assert.equal(sources.length, 1);
+    player.stop();
+    const again = player.playTask(t1);
+    await again;
+    assert.equal(sources.length, 2);
+    assert.equal(sources[0]!.disconnected, 1);
+    assert.equal(sources[1]!.started, 1);
+    assert.deepEqual(states, [
+      'LOADING',
+      'PLAYING',
+      'IDLE',
+      'LOADING',
+      'PLAYING',
+    ]);
+    assert.equal(t2.id, 't1');
+  });
+
+  it('cancelTask() stops the playing task, else only cancels', async () => {
+    const { player, tasks, log, states } = setup();
+    const t1 = player.enqueue('/a.wav');
+    const t2 = player.enqueue('/b.wav');
+    t2.promise.catch(() => {});
+    const p = player.playTask(t1);
+    assert.equal(player.cancelTask(t2.id), true);
+    assert.equal(player.state, 'LOADING');
+    assert.equal(player.cancelTask(t1.id), true);
+    await p;
+    assert.equal(player.state, 'IDLE');
+    assert.deepEqual(log.cancelled, ['t1', 't0']);
+    assert.deepEqual(states, ['LOADING', 'IDLE']);
+    assert.equal(tasks.length, 2);
+  });
+
+  it('clearQueue() stops playback and clears the queue', async () => {
+    const { player, sources, tasks, log } = setup();
+    const t1 = player.enqueue('/a.wav');
+    const p = player.playTask(t1);
+    tasks[0]!.resolve({});
+    await p;
+    player.clearQueue();
+    assert.equal(player.state, 'IDLE');
+    assert.equal(sources[0]!.disconnected, 1);
+    assert.equal(log.cleared, 1);
   });
 
   it('dispose() releases the source and closes the context', async () => {
